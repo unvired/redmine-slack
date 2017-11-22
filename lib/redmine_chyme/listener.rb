@@ -1,40 +1,21 @@
 require 'httpclient'
+require "json"
 
-class SlackListener < Redmine::Hook::Listener
+class ChymeListener < Redmine::Hook::Listener
 	def controller_issues_new_after_save(context={})
 		issue = context[:issue]
 
 		channel = channel_for_project issue.project
 		url = url_for_project issue.project
+		assistant = assistant_for_project issue.project
 
-		return unless channel and url
+		return unless channel and url and assistant
 		return if issue.is_private?
 
 		msg = "[#{escape issue.project}] #{escape issue.author} created <#{object_url issue}|#{escape issue}>#{mentions issue.description}"
-
-		attachment = {}
-		attachment[:text] = escape issue.description if issue.description
-		attachment[:fields] = [{
-			:title => I18n.t("field_status"),
-			:value => escape(issue.status.to_s),
-			:short => true
-		}, {
-			:title => I18n.t("field_priority"),
-			:value => escape(issue.priority.to_s),
-			:short => true
-		}, {
-			:title => I18n.t("field_assigned_to"),
-			:value => escape(issue.assigned_to.to_s),
-			:short => true
-		}]
-
-		attachment[:fields] << {
-			:title => I18n.t("field_watcher"),
-			:value => escape(issue.watcher_users.join(', ')),
-			:short => true
-		} if Setting.plugin_redmine_slack['display_watchers'] == 'yes'
-
-		speak msg, channel, attachment, url
+		followUpRecipes = [{:nlpSuggestionText => "Update issue", :nlpText => "Update issue"}]
+		issueBizEntity = issue_to_business_entity issue, followUpRecipes
+		speak msg, channel, assistant, issueBizEntity, url
 	end
 
 	def controller_issues_edit_after_save(context={})
@@ -43,18 +24,23 @@ class SlackListener < Redmine::Hook::Listener
 
 		channel = channel_for_project issue.project
 		url = url_for_project issue.project
+		assistant = assistant_for_project issue.project
 
-		return unless channel and url and Setting.plugin_redmine_slack['post_updates'] == '1'
+		return unless channel and url and assistant and Setting.plugin_redmine_chyme['post_updates'] == '1'
 		return if issue.is_private?
 		return if journal.private_notes?
 
-		msg = "[#{escape issue.project}] #{escape journal.user.to_s} updated <#{object_url issue}|#{escape issue}>#{mentions journal.notes}"
+        msg = "[#{escape issue.project}] #{escape journal.user.to_s} updated #{escape issue}: #{object_url issue}#{mentions journal.notes}"
+        msg = "#{msg}\nNote: #{journal.notes}" if journal.notes
 
-		attachment = {}
-		attachment[:text] = escape journal.notes if journal.notes
-		attachment[:fields] = journal.details.map { |d| detail_to_field d }
+        journal.details.map.each do |d|
+                msg = "#{msg}\n#{detail_to_field d}"
+        end
 
-		speak msg, channel, attachment, url
+		followUpRecipes = [{:nlpSuggestionText => "Update issue", :nlpText => "Update issue"}]
+		issueBizEntity = issue_to_business_entity issue, followUpRecipes
+
+		speak msg, channel, assistant, issueBizEntity, url
 	end
 
 	def model_changeset_scan_commit_for_issue_ids_pre_issue_update(context={})
@@ -64,11 +50,10 @@ class SlackListener < Redmine::Hook::Listener
 
 		channel = channel_for_project issue.project
 		url = url_for_project issue.project
+		assistant = assistant_for_project issue.project
 
-		return unless channel and url and issue.save
+		return unless channel and url and assistant and issue.save
 		return if issue.is_private?
-
-		msg = "[#{escape issue.project}] #{escape journal.user.to_s} updated <#{object_url issue}|#{escape issue}>"
 
 		repository = changeset.repository
 
@@ -97,64 +82,26 @@ class SlackListener < Redmine::Hook::Listener
 			)
 		end
 
-		attachment = {}
-		attachment[:text] = ll(Setting.default_language, :text_status_changed_by_changeset, "<#{revision_url}|#{escape changeset.comments}>")
-		attachment[:fields] = journal.details.map { |d| detail_to_field d }
+		msg = "[#{escape issue.project}] #{escape journal.user.to_s} updated <#{object_url issue}|#{escape issue}> <#{revision_url}|#{escape changeset.comments}>"
+        msg = "#{msg}\nNote: #{journal.notes}" if journal.notes
 
-		speak msg, channel, attachment, url
+        journal.details.map.each do |d|
+                msg = "#{msg}\n#{detail_to_field d}"
+        end
+
+		followUpRecipes = [{:nlpSuggestionText => "Update issue", :nlpText => "Update issue"}]
+		issueBizEntity = issue_to_business_entity issue, followUpRecipes
+		speak msg, channel, assistant, issueBizEntity, url
 	end
 
-	def controller_wiki_edit_after_save(context = { })
-		return unless Setting.plugin_redmine_slack['post_wiki_updates'] == '1'
-
-		project = context[:project]
-		page = context[:page]
-
-		user = page.content.author
-		project_url = "<#{object_url project}|#{escape project}>"
-		page_url = "<#{object_url page}|#{page.title}>"
-		comment = "[#{project_url}] #{page_url} updated by *#{user}*"
-
-		channel = channel_for_project project
-		url = url_for_project project
-
-		attachment = nil
-		if not page.content.comments.empty?
-			attachment = {}
-			attachment[:text] = "#{escape page.content.comments}"
-		end
-
-		speak comment, channel, attachment, url
-	end
-
-	def speak(msg, channel, attachment=nil, url=nil)
-		url = Setting.plugin_redmine_slack['slack_url'] if not url
-		username = Setting.plugin_redmine_slack['username']
-		icon = Setting.plugin_redmine_slack['icon']
-
-		params = {
-			:text => msg,
-			:link_names => 1,
-		}
-
-		params[:username] = username if username
-		params[:channel] = channel if channel
-
-		params[:attachments] = [attachment] if attachment
-
-		if icon and not icon.empty?
-			if icon.start_with? ':'
-				params[:icon_emoji] = icon
-			else
-				params[:icon_url] = icon
-			end
-		end
+	def speak(msg, channel, assistant, data, url=nil)
+		url = Setting.plugin_redmine_chyme['chyme_url'] if not url
 
 		begin
 			client = HTTPClient.new
 			client.ssl_config.cert_store.set_default_paths
 			client.ssl_config.ssl_version = :auto
-			client.post_async url, {:payload => params.to_json}
+			client.post_async url, {:message => msg, :recipient => channel, :assistant => assistant, :messageType => "ALERT", :data => data.to_json}
 		rescue Exception => e
 			Rails.logger.warn("cannot connect to #{url}")
 			Rails.logger.warn(e)
@@ -186,29 +133,46 @@ private
 	def url_for_project(proj)
 		return nil if proj.blank?
 
-		cf = ProjectCustomField.find_by_name("Slack URL")
+		cf = ProjectCustomField.find_by_name("Chyme URL")
 
 		return [
 			(proj.custom_value_for(cf).value rescue nil),
 			(url_for_project proj.parent),
-			Setting.plugin_redmine_slack['slack_url'],
+			Setting.plugin_redmine_chyme['chyme_url'],
 		].find{|v| v.present?}
 	end
 
 	def channel_for_project(proj)
 		return nil if proj.blank?
 
-		cf = ProjectCustomField.find_by_name("Slack Channel")
+		cf = ProjectCustomField.find_by_name("Chyme Channel")
 
 		val = [
 			(proj.custom_value_for(cf).value rescue nil),
 			(channel_for_project proj.parent),
-			Setting.plugin_redmine_slack['channel'],
+			Setting.plugin_redmine_chyme['channel'],
 		].find{|v| v.present?}
 
 		# Channel name '-' is reserved for NOT notifying
 		return nil if val.to_s == '-'
 		val
+	end
+
+	def assistant_for_project(proj)
+		return nil if proj.blank?
+
+		cf = ProjectCustomField.find_by_name("Chyme Assistant")
+
+		return [
+			(proj.custom_value_for(cf).value rescue nil),
+			(assistant_for_project proj.parent),
+			Setting.plugin_redmine_chyme['assistant'],
+		].find{|v| v.present?}
+
+	end
+
+	def issue_to_business_entity(issue, followUpRecipes)
+		return {:beList => {:ISSUE => [{:ISSUE_HEADER => {:ISSUE_ID => issue.id, :PROJECT => issue.project.name, :PROJECT_ID => issue.project.id, :TRACKER => issue.tracker.name, :STATUS => issue.status.name, :PRIORITY => issue.priority.name, :SUBJECT => issue.subject, :DESCRIPTION => issue.description, :START_DATE => issue.start_date, :DONE_RATIO => issue.done_ratio.to_s, :CREATED_ON => issue.created_on, :UPDATED_ON => issue.updated_on}}]}, :sendBE => "true", :followUpRecipes => followUpRecipes.to_json}
 	end
 
 	def detail_to_field(detail)
@@ -227,12 +191,9 @@ private
 			end
 		end
 
-		short = true
 		value = escape detail.value.to_s
 
 		case key
-		when "title", "subject", "description"
-			short = false
 		when "tracker"
 			tracker = Tracker.find(detail.value) rescue nil
 			value = escape tracker.to_s
@@ -264,8 +225,7 @@ private
 
 		value = "-" if value.empty?
 
-		result = { :title => title, :value => value }
-		result[:short] = true if short
+		result = "#{title} : #{value}"
 		result
 	end
 
@@ -279,7 +239,7 @@ private
 			text = ''
 		end
 
-		# slack usernames may only contain lowercase letters, numbers,
+		# chyme usernames may only contain lowercase letters, numbers,
 		# dashes and underscores and must start with a letter or number.
 		text.scan(/@[a-z0-9][a-z0-9_\-]*/).uniq
 	end

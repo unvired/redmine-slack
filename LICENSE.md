@@ -1,3 +1,4 @@
+Copyright (c) 2017 Unvired Inc
 Copyright (c) 2016 Samuel Cormier-Iijima
 
 Permission is hereby granted, free of charge, to any person obtaining

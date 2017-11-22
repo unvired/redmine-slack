@@ -1,24 +1,22 @@
 require 'redmine'
 
-require_dependency 'redmine_slack/listener'
+require_dependency 'redmine_chyme/listener'
 
-Redmine::Plugin.register :redmine_slack do
-	name 'Redmine Slack'
-	author 'Samuel Cormier-Iijima'
-	url 'https://github.com/sciyoshi/redmine-slack'
-	author_url 'http://www.sciyoshi.com'
-	description 'Slack chat integration'
-	version '0.2'
+Redmine::Plugin.register :redmine_chyme do
+	name 'Redmine Chyme'
+	author 'Unvired Inc'
+	url 'https://github.com/unvired/redmine_chyme'
+	author_url 'http://unvired.com'
+	description 'ChymeBot Messenger Integration'
+	version '0.1'
 
 	requires_redmine :version_or_higher => '0.8.0'
 
 	settings \
 		:default => {
-			'callback_url' => 'http://slack.com/callback/',
-			'channel' => nil,
-			'icon' => 'https://raw.github.com/sciyoshi/redmine-slack/gh-pages/icon.png',
-			'username' => 'redmine',
-			'display_watchers' => 'no'
+			'callback_url' => nil,
+			'assistant' => nil,
+			'channel' => nil
 		},
-		:partial => 'settings/slack_settings'
+		:partial => 'settings/chyme_settings'
 end
