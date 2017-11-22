@@ -1,4 +1,4 @@
-Chyme Messenger plugin for Redmine
+## Chyme Messenger plugin for Redmine
 
 This plugin posts updates to issues in your Redmine installation to a ChymeBot
 channel. Please note that for the full functionality (Natural language queries, updates to issues etc),
