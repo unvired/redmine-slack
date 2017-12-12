@@ -96,6 +96,7 @@ class ChymeListener < Redmine::Hook::Listener
 
 	def speak(msg, channel, assistant, data, url=nil)
 		url = Setting.plugin_redmine_chyme['chyme_url'] if not url
+		url = url + "/messages"
 
 		begin
 			client = HTTPClient.new
@@ -172,7 +173,7 @@ private
 	end
 
 	def issue_to_business_entity(issue, followUpRecipes)
-		return {:beList => {:ISSUE => [{:ISSUE_HEADER => {:ISSUE_ID => issue.id, :PROJECT => issue.project.name, :PROJECT_ID => issue.project.id, :TRACKER => issue.tracker.name, :STATUS => issue.status.name, :PRIORITY => issue.priority.name, :SUBJECT => issue.subject, :DESCRIPTION => issue.description, :START_DATE => issue.start_date, :DONE_RATIO => issue.done_ratio.to_s, :CREATED_ON => issue.created_on, :UPDATED_ON => issue.updated_on}}]}, :sendBE => "true", :followUpRecipes => followUpRecipes.to_json}
+		return {:beList => {:ISSUE => [{:ISSUE_HEADER => {:ISSUE_ID => issue.id, :PROJECT => issue.project.name, :PROJECT_ID => issue.project.id, :TRACKER => issue.tracker.name, :STATUS => issue.status.name, :PRIORITY => issue.priority.name, :SUBJECT => issue.subject, :DESCRIPTION => issue.description, :START_DATE => issue.start_date, :DONE_RATIO => issue.done_ratio.to_s, :CREATED_ON => issue.created_on, :UPDATED_ON => issue.updated_on}}]}, :sendBE => "false", :followUpRecipes => followUpRecipes.to_json}
 	end
 
 	def detail_to_field(detail)
