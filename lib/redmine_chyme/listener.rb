@@ -14,8 +14,8 @@ class ChymeListener < Redmine::Hook::Listener
 
 		msg = "[#{escape issue.project}] #{escape issue.author} created <#{object_url issue}|#{escape issue}>#{mentions issue.description}"
 		followUpRecipes = [{:nlpSuggestionText => "Update issue", :nlpText => "Update issue"}]
-		issueBizEntity = issue_to_business_entity issue, followUpRecipes
-		speak msg, channel, assistant, issueBizEntity, url
+		issueBizEntity = issue_to_business_entity issue
+		speak msg, channel, assistant, issueBizEntity, followUpRecipes, url
 	end
 
 	def controller_issues_edit_after_save(context={})
@@ -38,9 +38,9 @@ class ChymeListener < Redmine::Hook::Listener
         end
 
 		followUpRecipes = [{:nlpSuggestionText => "Update issue", :nlpText => "Update issue"}]
-		issueBizEntity = issue_to_business_entity issue, followUpRecipes
+		issueBizEntity = issue_to_business_entity issue
 
-		speak msg, channel, assistant, issueBizEntity, url
+		speak msg, channel, assistant, issueBizEntity, followUpRecipes, url
 	end
 
 	def model_changeset_scan_commit_for_issue_ids_pre_issue_update(context={})
@@ -90,11 +90,11 @@ class ChymeListener < Redmine::Hook::Listener
         end
 
 		followUpRecipes = [{:nlpSuggestionText => "Update issue", :nlpText => "Update issue"}]
-		issueBizEntity = issue_to_business_entity issue, followUpRecipes
-		speak msg, channel, assistant, issueBizEntity, url
+		issueBizEntity = issue_to_business_entity issue
+		speak msg, channel, assistant, issueBizEntity, followUpRecipes, url
 	end
 
-	def speak(msg, channel, assistant, data, url=nil)
+	def speak(msg, channel, assistant, data, followUps, url=nil)
 		url = Setting.plugin_redmine_chyme['chyme_url'] if not url
 		url = url + "/messages"
 
@@ -102,7 +102,7 @@ class ChymeListener < Redmine::Hook::Listener
 			client = HTTPClient.new
 			client.ssl_config.cert_store.set_default_paths
 			client.ssl_config.ssl_version = :auto
-			client.post_async url, {:message => msg, :recipient => channel, :assistant => assistant, :messageType => "ALERT", :data => data.to_json}
+			client.post_async url, {:message => msg, :recipient => channel, :assistant => assistant, :messageType => "ALERT", :data => data.to_json, :followUpRecipes => followUps.to_json}
 		rescue Exception => e
 			Rails.logger.warn("cannot connect to #{url}")
 			Rails.logger.warn(e)
@@ -172,8 +172,8 @@ private
 
 	end
 
-	def issue_to_business_entity(issue, followUpRecipes)
-		return {:beList => {:ISSUE => [{:ISSUE_HEADER => {:ISSUE_ID => issue.id, :PROJECT => issue.project.name, :PROJECT_ID => issue.project.id, :TRACKER => issue.tracker.name, :STATUS => issue.status.name, :PRIORITY => issue.priority.name, :SUBJECT => issue.subject, :DESCRIPTION => issue.description, :START_DATE => issue.start_date, :DONE_RATIO => issue.done_ratio.to_s, :CREATED_ON => issue.created_on, :UPDATED_ON => issue.updated_on}}]}, :sendBE => "false", :followUpRecipes => followUpRecipes.to_json}
+	def issue_to_business_entity(issue)
+		return {:beList => {:ISSUE => [{:ISSUE_HEADER => {:ISSUE_ID => issue.id, :PROJECT => issue.project.name, :PROJECT_ID => issue.project.id, :TRACKER => issue.tracker.name, :STATUS => issue.status.name, :PRIORITY => issue.priority.name, :SUBJECT => issue.subject, :DESCRIPTION => issue.description, :START_DATE => issue.start_date, :DONE_RATIO => issue.done_ratio.to_s, :CREATED_ON => issue.created_on, :UPDATED_ON => issue.updated_on}}]}, :sendBE => "false"}
 	end
 
 	def detail_to_field(detail)
