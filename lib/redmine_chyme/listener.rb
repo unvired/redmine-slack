@@ -36,7 +36,7 @@ class ChymeListener < Redmine::Hook::Listener
         msg = "#{msg}\nNote: #{journal.notes}" if journal.notes
 
         journal.details.map.each do |d|
-                msg = "#{msg}\n#{detail_to_field d}"
+                msg = "#{msg}\n#{ChymeHelper.detail_to_field d}"
         end
 
 		followUpRecipes = [{:nlpSuggestionText => "Update issue", :nlpText => "Update issue"}]
@@ -88,7 +88,7 @@ class ChymeListener < Redmine::Hook::Listener
         msg = "#{msg}\nNote: #{journal.notes}" if journal.notes
 
         journal.details.map.each do |d|
-                msg = "#{msg}\n#{detail_to_field d}"
+                msg = "#{msg}\n#{ChymeHelper.detail_to_field d}"
         end
 
 		followUpRecipes = [{:nlpSuggestionText => "Update issue", :nlpText => "Update issue"}]
