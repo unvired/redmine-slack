@@ -25,13 +25,13 @@ from the plugin directory.
 
 For managing conversations a database field has been added, run:
 
-bundle exec rake redmine:plugins:migrate NAME=redmine_chyme RAILS_ENV=production
+    bundle exec rake redmine:plugins:migrate NAME=redmine_chyme RAILS_ENV=production
 
 Restart Redmine, and you should see the plugin show up in the Plugins page.
 Under the configuration options, set the Chyme webhook URL to the URL for an
 Incoming WebHook integration in your Chyme account.
 
-Important:  Remember to append /messages to the generated Chyme webhook URL.
+Important:  Remember to remove any trailing / from the generated Chyme webhook URL.
 
 ## Customized Routing
 
