@@ -23,6 +23,10 @@ You will also need the `httpclient` dependency, which can be installed by runnin
 
 from the plugin directory.
 
+For managing conversations a database field has been added, run:
+
+bundle exec rake redmine:plugins:migrate NAME=redmine_chyme RAILS_ENV=production
+
 Restart Redmine, and you should see the plugin show up in the Plugins page.
 Under the configuration options, set the Chyme webhook URL to the URL for an
 Incoming WebHook integration in your Chyme account.
